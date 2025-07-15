@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,15 +16,23 @@ import (
 )
 
 func main() {
+	// Define command line flags
+	portFlag := flag.String("port", "", "Port to run the server on (overrides PORT env var)")
+	flag.Parse()
+
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 	sugar := logger.Sugar()
 
 	if err := godotenv.Load(); err != nil {
-		sugar.Warn("No .env file found, using default PORT=8080")
+		sugar.Warn("No .env file found, using defaults")
 	}
 
-	port := os.Getenv("PORT")
+	// Port priority: command line flag > environment variable > default
+	port := *portFlag
+	if port == "" {
+		port = os.Getenv("PORT")
+	}
 	if port == "" {
 		port = "8080"
 	}
