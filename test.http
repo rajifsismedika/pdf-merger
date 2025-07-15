@@ -1,5 +1,5 @@
 # curl -X POST http://localhost:8080/merge -H "Content-Type: application/json" -o merged.pdf -d '{ "name": "combined_docs", "urls": [ "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", "https://unec.edu.az/application/uploads/2014/12/pdf-sample.pdf", "https://www.africau.edu/images/default/sample.pdf" ] }' 
-POST http://localhost:8585/merge
+POST http://localhost:8080/merge
 content-type: application/json
 
 {

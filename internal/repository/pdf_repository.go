@@ -59,10 +59,23 @@ func (r *pdfRepo) DownloadAndMerge(urls []string) ([]byte, error) {
 
 					pdfData, err = downloadPDF(manualEncodedURL)
 					if err != nil {
+						// Check if it's a non-PDF content error and skip it
+						if isNonPDFError(err) {
+							fmt.Printf("Skipping non-PDF content at %s: %v\n", manualEncodedURL, err)
+							results <- downloadResult{index, nil, nil} // Skip this URL
+							return
+						}
 						results <- downloadResult{index, nil, fmt.Errorf("download failed for both encoded URLs. Original: %s, Manual: %s - Error: %w", encodedURL, manualEncodedURL, err)}
 						return
 					}
 				} else {
+					// Check if it's a non-PDF content error and skip it
+					if isNonPDFError(err) {
+						fmt.Printf("Skipping non-PDF content at %s: %v\n", encodedURL, err)
+						results <- downloadResult{index, nil, nil} // Skip this URL
+						return
+					}
+					fmt.Printf("Downloading \n %s", encodedURL)
 					results <- downloadResult{index, nil, fmt.Errorf("download failed for %s: %w", encodedURL, err)}
 					return
 				}
@@ -79,18 +92,26 @@ func (r *pdfRepo) DownloadAndMerge(urls []string) ([]byte, error) {
 	}()
 
 	// Collect results in order
-	pdfDataSlice := make([][]byte, len(urls))
+	pdfDataSlice := make([][]byte, 0, len(urls)) // Use slice with capacity but start empty
 	for result := range results {
 		if result.err != nil {
 			return nil, result.err
 		}
-		pdfDataSlice[result.index] = result.data
+		// Skip nil data (non-PDF content that was skipped)
+		if result.data != nil {
+			pdfDataSlice = append(pdfDataSlice, result.data)
+		}
 	}
 
 	// Convert to ReadSeeker for merging
 	var pdfBuffers []io.ReadSeeker
 	for _, data := range pdfDataSlice {
 		pdfBuffers = append(pdfBuffers, bytes.NewReader(data))
+	}
+
+	// Check if we have any PDFs to merge
+	if len(pdfBuffers) == 0 {
+		return nil, fmt.Errorf("no valid PDF files found to merge")
 	}
 
 	var mergedBuf bytes.Buffer
@@ -170,4 +191,14 @@ func isHTTP400Error(err error) bool {
 	}
 	errStr := err.Error()
 	return strings.Contains(errStr, "HTTP 400")
+}
+
+// isNonPDFError checks if the error is related to non-PDF content
+func isNonPDFError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "invalid content-type") ||
+		strings.Contains(errStr, "not a valid PDF")
 }
