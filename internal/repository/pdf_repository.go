@@ -92,26 +92,32 @@ func (r *pdfRepo) DownloadAndMerge(urls []string) ([]byte, error) {
 	}()
 
 	// Collect results in order
-	pdfDataSlice := make([][]byte, 0, len(urls)) // Use slice with capacity but start empty
+	pdfDataSlice := make([][]byte, len(urls)) // Create slice with exact size to maintain order
+	downloadedCount := 0
+
 	for result := range results {
 		if result.err != nil {
 			return nil, result.err
 		}
-		// Skip nil data (non-PDF content that was skipped)
+		// Place data at the correct index to maintain order
+		// result.data will be nil for skipped non-PDF content
+		pdfDataSlice[result.index] = result.data
 		if result.data != nil {
-			pdfDataSlice = append(pdfDataSlice, result.data)
+			downloadedCount++
 		}
 	}
 
-	// Convert to ReadSeeker for merging
-	var pdfBuffers []io.ReadSeeker
-	for _, data := range pdfDataSlice {
-		pdfBuffers = append(pdfBuffers, bytes.NewReader(data))
+	// Check if we have any PDFs to merge
+	if downloadedCount == 0 {
+		return nil, fmt.Errorf("no valid PDF files found to merge")
 	}
 
-	// Check if we have any PDFs to merge
-	if len(pdfBuffers) == 0 {
-		return nil, fmt.Errorf("no valid PDF files found to merge")
+	// Convert to ReadSeeker for merging, preserving order and skipping nil entries
+	var pdfBuffers []io.ReadSeeker
+	for _, data := range pdfDataSlice {
+		if data != nil { // Only add non-nil data (valid PDFs)
+			pdfBuffers = append(pdfBuffers, bytes.NewReader(data))
+		}
 	}
 
 	var mergedBuf bytes.Buffer
