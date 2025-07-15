@@ -1,0 +1,34 @@
+[Unit]
+Description=PDF Merge Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pdfmerge
+Group=pdfmerge
+WorkingDirectory=/opt/pdfmerge
+ExecStart=/opt/pdfmerge/bin/pdfmerge-server -port 8585
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=5
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/pdfmerge/logs
+
+# Environment variables
+Environment=PORT=8585
+Environment=BASE_URL=http://localhost
+EnvironmentFile=-/opt/pdfmerge/.env
+
+[Install]
+WantedBy=multi-user.target
